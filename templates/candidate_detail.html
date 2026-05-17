@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+{% block title %}{{ candidate.name or 'Candidate' }} — AI Resume Screener{% endblock %}
+{% block page_title %}Candidate Profile{% endblock %}
+
+{% block content %}
+{% set scores = candidate.scores or {} %}
+
+<!-- Back + Actions -->
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <a href="{{ url_for('candidates') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="fas fa-arrow-left me-1"></i>Back to Candidates
+  </a>
+  <div class="d-flex gap-2">
+    {% if candidate.rank == 1 %}
+    <span class="badge bg-warning text-dark fs-6 px-3"><i class="fas fa-trophy me-1"></i>Top Candidate</span>
+    {% elif candidate.rank <= 3 %}
+    <span class="badge bg-success fs-6 px-3"><i class="fas fa-star me-1"></i>Top 3</span>
+    {% endif %}
+    <span class="badge bg-primary-subtle text-primary fs-6 px-3">Rank #{{ candidate.rank }}</span>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Left column -->
+  <div class="col-lg-4">
+
+    <!-- Profile Card -->
+    <div class="card shadow-sm mb-4 profile-card">
+      <div class="card-body text-center py-4">
+        <div class="avatar-circle avatar-xl mx-auto mb-3
+          {% if candidate.final_score >= 75 %}avatar-green{% elif candidate.final_score >= 50 %}avatar-yellow{% else %}avatar-red{% endif %}">
+          {{ (candidate.name or 'U')[0].upper() }}
+        </div>
+        <h4 class="mb-1">{{ candidate.name or 'Unknown' }}</h4>
+        {% if candidate.email %}
+        <a href="mailto:{{ candidate.email }}" class="text-muted d-block mb-1">
+          <i class="fas fa-envelope me-1"></i>{{ candidate.email }}
+        </a>
+        {% endif %}
+        {% if candidate.phone %}
+        <p class="text-muted mb-1 small">
+          <i class="fas fa-phone me-1"></i>{{ candidate.phone }}
+        </p>
+        {% endif %}
+        {% if candidate.linkedin %}
+        <a href="https://{{ candidate.linkedin }}" target="_blank" class="text-info d-block mb-1 small">
+          <i class="fab fa-linkedin me-1"></i>{{ candidate.linkedin }}
+        </a>
+        {% endif %}
+        {% if candidate.github %}
+        <a href="https://{{ candidate.github }}" target="_blank" class="text-secondary d-block mb-1 small">
+          <i class="fab fa-github me-1"></i>{{ candidate.github }}
+        </a>
+        {% endif %}
+
+        <hr>
+
+        <!-- Final score ring -->
+        <div class="my-3">
+          <div class="big-score-ring
+            {% if candidate.final_score >= 75 %}ring-green{% elif candidate.final_score >= 50 %}ring-yellow{% else %}ring-red{% endif %}">
+            <svg viewBox="0 0 100 100" class="score-svg">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+              <circle cx="50" cy="50" r="42" fill="none"
+                      stroke="{% if candidate.final_score >= 75 %}#10b981{% elif candidate.final_score >= 50 %}#f59e0b{% else %}#ef4444{% endif %}"
+                      stroke-width="8"
+                      stroke-dasharray="{{ (candidate.final_score or 0) * 2.638 }} 263.8"
+                      stroke-dashoffset="65.95"
+                      stroke-linecap="round"
+                      transform="rotate(-90 50 50)"/>
+            </svg>
+            <div class="score-svg-text">
+              <div class="score-svg-value">{{ candidate.final_score or 0 }}%</div>
+              <div class="score-svg-label">Match</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-center gap-4 text-center small">
+          <div>
+            <div class="fw-700 text-primary">{{ candidate.experience_years or 0 }}y</div>
+            <div class="text-muted">Experience</div>
+          </div>
+          <div>
+            <div class="fw-700 text-success">{{ candidate.skill_count or 0 }}</div>
+            <div class="text-muted">Skills</div>
+          </div>
+          <div>
+            <div class="fw-700 text-warning">{{ candidate.education_level or 'N/A' }}</div>
+            <div class="text-muted">Education</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score Breakdown -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-chart-bar me-2 text-primary"></i>Score Breakdown</h6>
+      </div>
+      <div class="card-body">
+        {% set score_items = [
+          ('Semantic Match', 'tfidf_score', 'primary', 'fas fa-brain'),
+          ('Skills Match', 'skills_score', 'success', 'fas fa-code'),
+          ('Experience', 'experience_score', 'warning', 'fas fa-briefcase'),
+          ('Education', 'education_score', 'info', 'fas fa-graduation-cap'),
+          ('ATS Score', 'ats_score', 'secondary', 'fas fa-robot')
+        ] %}
+        {% for label, key, color, icon in score_items %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small"><i class="{{ icon }} me-1 text-{{ color }}"></i>{{ label }}</span>
+            <strong class="text-{{ color }}">{{ scores.get(key, 0) }}%</strong>
+          </div>
+          <div class="progress" style="height:8px">
+            <div class="progress-bar bg-{{ color }}" style="width:{{ scores.get(key, 0) }}%"
+                 role="progressbar"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Certifications -->
+    {% if candidate.certifications %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-certificate me-2 text-warning"></i>Certifications</h6>
+      </div>
+      <div class="card-body">
+        {% for cert in candidate.certifications %}
+        <div class="cert-item">
+          <i class="fas fa-award text-warning me-2"></i>{{ cert }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Languages -->
+    {% if candidate.languages %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-language me-2 text-info"></i>Languages</h6>
+      </div>
+      <div class="card-body">
+        {% for lang in candidate.languages %}
+        <div class="d-flex justify-content-between small mb-1">
+          <span>{{ lang.language }}</span>
+          <span class="text-muted">{{ lang.proficiency or 'Known' }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right column -->
+  <div class="col-lg-8">
+
+    <!-- Skills matched / missing -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-puzzle-piece me-2 text-success"></i>Skills Analysis</h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <h6 class="text-success mb-2">
+              <i class="fas fa-check-circle me-1"></i>
+              Matched Skills ({{ (candidate.keyword_details or {}).get('match_count', 0) }})
+            </h6>
+            <div class="skills-cloud">
+              {% for skill in (candidate.keyword_details or {}).get('matched', []) %}
+                <span class="skill-tag skill-tag-matched">{{ skill }}</span>
+              {% else %}
+                <span class="text-muted small">No skills matched from requirements</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="col-md-6">
+            <h6 class="text-danger mb-2">
+              <i class="fas fa-times-circle me-1"></i>
+              Missing Skills ({{ (candidate.keyword_details or {}).get('missing', [])|length }})
+            </h6>
+            <div class="skills-cloud">
+              {% for skill in (candidate.keyword_details or {}).get('missing', [])[:12] %}
+                <span class="skill-tag skill-tag-missing">{{ skill }}</span>
+              {% else %}
+                <span class="text-muted small">No critical skills missing</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="col-12 mt-2">
+            <h6 class="text-primary mb-2">
+              <i class="fas fa-plus-circle me-1"></i>
+              Additional Skills ({{ (candidate.keyword_details or {}).get('extra', [])|length }}+)
+            </h6>
+            <div class="skills-cloud">
+              {% for skill in (candidate.keyword_details or {}).get('extra', [])[:15] %}
+                <span class="skill-tag">{{ skill }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Education -->
+    {% if candidate.education %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-graduation-cap me-2 text-warning"></i>Education</h6>
+      </div>
+      <div class="card-body">
+        {% for edu in candidate.education %}
+        <div class="timeline-item">
+          <div class="timeline-dot bg-warning"></div>
+          <div class="timeline-content">
+            <div class="fw-600">{{ edu.degree[:100] }}</div>
+            {% if edu.institution %}
+            <div class="text-muted small"><i class="fas fa-university me-1"></i>{{ edu.institution }}</div>
+            {% endif %}
+            <div class="d-flex gap-3 mt-1">
+              {% if edu.years %}
+              <span class="text-muted small"><i class="fas fa-calendar me-1"></i>{{ edu.years|join(' – ') }}</span>
+              {% endif %}
+              {% if edu.gpa %}
+              <span class="text-muted small"><i class="fas fa-star me-1"></i>GPA: {{ edu.gpa }}</span>
+              {% endif %}
+              <span class="badge bg-warning-subtle text-warning small">{{ edu.level or 'Degree' }}</span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Experience -->
+    {% if candidate.experience %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-briefcase me-2 text-info"></i>Work Experience</h6>
+      </div>
+      <div class="card-body">
+        {% for exp in candidate.experience %}
+        <div class="timeline-item">
+          <div class="timeline-dot bg-info"></div>
+          <div class="timeline-content">
+            <div class="fw-600">{{ exp.title[:80] or 'Position' }}</div>
+            {% if exp.company %}
+            <div class="text-muted small"><i class="fas fa-building me-1"></i>{{ exp.company }}</div>
+            {% endif %}
+            {% if exp.duration %}
+            <div class="text-muted small"><i class="fas fa-calendar me-1"></i>{{ exp.duration }}</div>
+            {% endif %}
+            {% if exp.description %}
+            <p class="text-muted small mt-1 mb-0">{{ exp.description[:200] }}</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Interview Questions -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fas fa-comments me-2 text-primary"></i>AI-Generated Interview Questions</h6>
+        <button class="btn btn-sm btn-outline-primary" id="regenQuestionsBtn" data-id="{{ candidate.id }}">
+          <i class="fas fa-sync-alt me-1"></i>Regenerate
+        </button>
+      </div>
+      <div class="card-body" id="questionsContainer">
+        {% if candidate.interview_questions %}
+          {% set type_colors = {'Behavioral': 'primary', 'Technical': 'success', 'Experience': 'info', 'Leadership': 'warning', 'Culture Fit': 'secondary', 'General': 'dark'} %}
+          {% for q in candidate.interview_questions %}
+          <div class="question-item">
+            <span class="badge bg-{{ type_colors.get(q.type, 'secondary') }}-subtle text-{{ type_colors.get(q.type, 'secondary') }} mb-1">
+              {{ q.type }}
+            </span>
+            <p class="mb-0">{{ q.question }}</p>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted">No questions generated yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Improvement Suggestions -->
+    {% if candidate.improvement_suggestions %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-lightbulb me-2 text-warning"></i>Resume Improvement Suggestions</h6>
+      </div>
+      <div class="card-body">
+        {% for sug in candidate.improvement_suggestions %}
+        <div class="suggestion-item
+          {% if sug.priority == 'High' %}suggestion-high
+          {% elif sug.priority == 'Medium' %}suggestion-medium
+          {% else %}suggestion-low{% endif %}">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <span class="fw-600 small">{{ sug.category }}</span>
+            <span class="badge
+              {% if sug.priority == 'High' %}bg-danger{% elif sug.priority == 'Medium' %}bg-warning text-dark{% else %}bg-secondary{% endif %}
+              badge-sm">{{ sug.priority }}</span>
+          </div>
+          <p class="mb-1 small">{{ sug.suggestion }}</p>
+          <p class="mb-0 text-muted" style="font-size:0.8rem">
+            <i class="fas fa-arrow-up me-1 text-success"></i>{{ sug.impact }}
+          </p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Radar chart -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-spider me-2 text-secondary"></i>Performance Radar</h6>
+      </div>
+      <div class="card-body d-flex justify-content-center">
+        <div style="max-width:380px; width:100%">
+          <canvas id="radarChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const scores = {{ (candidate.scores or {}) | tojson }};
+
+// Radar chart
+const ctx = document.getElementById('radarChart').getContext('2d');
+new Chart(ctx, {
+  type: 'radar',
+  data: {
+    labels: ['Semantic Match', 'Skills', 'Experience', 'Education', 'ATS'],
+    datasets: [{
+      label: '{{ candidate.name or "Candidate" }}'.substring(0, 20),
+      data: [
+        scores.tfidf_score || 0,
+        scores.skills_score || 0,
+        scores.experience_score || 0,
+        scores.education_score || 0,
+        scores.ats_score || 0
+      ],
+      fill: true,
+      backgroundColor: 'rgba(79, 70, 229, 0.15)',
+      borderColor: '#4f46e5',
+      pointBackgroundColor: '#4f46e5',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: '#4f46e5'
+    }]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      r: {
+        beginAtZero: true,
+        max: 100,
+        grid: { color: 'rgba(0,0,0,0.08)' },
+        pointLabels: { font: { size: 12 } }
+      }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Regenerate questions
+document.getElementById('regenQuestionsBtn').addEventListener('click', async function() {
+  const id = this.dataset.id;
+  this.disabled = true;
+  this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Loading...';
+
+  try {
+    const resp = await fetch(`/api/regenerate-questions/${id}`, { method: 'POST' });
+    const data = await resp.json();
+
+    if (data.questions) {
+      const typeColors = {
+        'Behavioral': 'primary', 'Technical': 'success', 'Experience': 'info',
+        'Leadership': 'warning', 'Culture Fit': 'secondary', 'General': 'dark'
+      };
+      const container = document.getElementById('questionsContainer');
+      container.innerHTML = data.questions.map(q => `
+        <div class="question-item">
+          <span class="badge bg-${typeColors[q.type] || 'secondary'}-subtle text-${typeColors[q.type] || 'secondary'} mb-1">${q.type}</span>
+          <p class="mb-0">${q.question}</p>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    console.error(e);
+  } finally {
+    this.disabled = false;
+    this.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Regenerate';
+  }
+});
+</script>
+{% endblock %}

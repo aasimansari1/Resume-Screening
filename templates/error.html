@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code }} — AI Resume Screener{% endblock %}
+{% block content %}
+<div class="d-flex flex-column align-items-center justify-content-center py-5 text-center">
+  <div class="error-code text-muted opacity-25">{{ code }}</div>
+  <h2 class="mb-2">{{ message }}</h2>
+  <p class="text-muted mb-4">Something went wrong. Please try again.</p>
+  <a href="{{ url_for('index') }}" class="btn btn-primary">
+    <i class="fas fa-home me-2"></i>Go Home
+  </a>
+</div>
+{% endblock %}

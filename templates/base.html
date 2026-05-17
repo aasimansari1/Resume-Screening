@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AI Resume Screener{% endblock %}</title>
+
+  <!-- Bootstrap 5.3 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome 6 -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Custom CSS -->
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+
+{% if current_user.is_authenticated %}
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">
+      <i class="fas fa-brain"></i>
+    </div>
+    <div class="brand-text">
+      <span class="brand-name">ResumeAI</span>
+      <span class="brand-sub">Screening Platform</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Main</div>
+    <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+      <i class="fas fa-upload"></i>
+      <span>Upload & Analyze</span>
+    </a>
+    <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+      <i class="fas fa-chart-pie"></i>
+      <span>Dashboard</span>
+      {% if has_results %}<span class="nav-badge">Live</span>{% endif %}
+    </a>
+    <a href="{{ url_for('candidates') }}" class="nav-item {% if request.endpoint in ['candidates', 'candidate_detail'] %}active{% endif %}">
+      <i class="fas fa-users"></i>
+      <span>Candidates</span>
+      {% if candidate_count > 0 %}<span class="nav-badge">{{ candidate_count }}</span>{% endif %}
+    </a>
+
+    <div class="nav-section-label mt-3">Reports</div>
+    <a href="{{ url_for('export_csv') }}" class="nav-item">
+      <i class="fas fa-file-csv"></i>
+      <span>Export CSV</span>
+    </a>
+    <a href="{{ url_for('export_pdf') }}" class="nav-item">
+      <i class="fas fa-file-pdf"></i>
+      <span>Export PDF</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar">
+        <i class="fas fa-user-tie"></i>
+      </div>
+      <div class="user-info">
+        <span class="user-name">{{ current_user.username }}</span>
+        <span class="user-role">{{ current_user.role | capitalize }}</span>
+      </div>
+      <a href="{{ url_for('logout') }}" class="logout-btn" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="main-content" id="main-content">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <button class="sidebar-toggle" id="sidebarToggle">
+      <i class="fas fa-bars"></i>
+    </button>
+    <div class="topbar-title">{% block page_title %}{% endblock %}</div>
+    <div class="topbar-actions">
+      <div class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+        <i class="fas fa-moon"></i>
+      </div>
+      {% if has_results %}
+      <form method="POST" action="{{ url_for('clear_results') }}" class="d-inline"
+            onsubmit="return confirm('Clear all results and uploaded files?')">
+        <button type="submit" class="btn btn-sm btn-outline-danger ms-2">
+          <i class="fas fa-trash-alt me-1"></i>Clear All
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Flash messages -->
+  <div class="flash-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' if category in ['danger','warning'] else 'info-circle' }} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Page content -->
+  <div class="page-content">
+    {% block content %}{% endblock %}
+  </div>
+
+</div><!-- /main-content -->
+
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Custom JS -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

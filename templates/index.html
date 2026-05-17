@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}Upload & Analyze — AI Resume Screener{% endblock %}
+{% block page_title %}Upload & Analyze{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Upload Form -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent">
+        <h5 class="mb-0"><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>New Screening Session</h5>
+      </div>
+      <div class="card-body">
+        <form id="uploadForm" method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+
+          <!-- Step 1: Job Description -->
+          <div class="upload-step">
+            <div class="step-header">
+              <div class="step-number">1</div>
+              <div>
+                <h6 class="mb-1">Job Description</h6>
+                <small class="text-muted">Paste the JD text or upload a PDF/DOCX file</small>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <textarea class="form-control" name="job_description" id="jdTextarea"
+                        rows="8" placeholder="Paste job description here...
+
+Example:
+We are looking for a Senior Python Developer with 5+ years of experience in Django,
+Flask, and RESTful APIs. Strong knowledge of PostgreSQL, Redis, and Docker required.
+Experience with AWS and Kubernetes is a plus..."></textarea>
+            </div>
+
+            <div class="d-flex align-items-center gap-3 mb-1">
+              <hr class="flex-grow-1">
+              <span class="text-muted small">OR upload a file</span>
+              <hr class="flex-grow-1">
+            </div>
+
+            <div class="upload-zone-sm" id="jdDropZone">
+              <input type="file" name="jd_file" id="jdFile" accept=".pdf,.docx,.doc,.txt" class="d-none">
+              <label for="jdFile" class="mb-0 cursor-pointer w-100 text-center py-2">
+                <i class="fas fa-file-alt me-2 text-muted"></i>
+                <span id="jdFileName" class="text-muted">Drop or click to upload JD file</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Step 2: Resumes -->
+          <div class="upload-step mt-4">
+            <div class="step-header">
+              <div class="step-number">2</div>
+              <div>
+                <h6 class="mb-1">Upload Resumes</h6>
+                <small class="text-muted">PDF or DOCX — multiple files supported (max 16 MB each)</small>
+              </div>
+            </div>
+
+            <div class="upload-zone" id="resumeDropZone">
+              <input type="file" name="resumes" id="resumeFiles"
+                     accept=".pdf,.docx,.doc" multiple class="d-none">
+              <label for="resumeFiles" class="upload-zone-label">
+                <div class="upload-icon-wrap">
+                  <i class="fas fa-file-upload upload-icon"></i>
+                </div>
+                <div class="upload-text-main">Drag & drop resumes here</div>
+                <div class="upload-text-sub">or click to browse</div>
+                <div class="upload-formats">
+                  <span class="badge bg-primary-subtle text-primary">PDF</span>
+                  <span class="badge bg-success-subtle text-success">DOCX</span>
+                  <span class="badge bg-info-subtle text-info">Multiple files</span>
+                </div>
+              </label>
+            </div>
+
+            <!-- File list -->
+            <div id="fileList" class="file-list mt-3 d-none"></div>
+          </div>
+
+          <!-- Analyze button -->
+          <div class="mt-4 d-grid">
+            <button type="submit" class="btn btn-primary btn-lg" id="analyzeBtn">
+              <i class="fas fa-robot me-2"></i>
+              Analyze & Rank Candidates
+            </button>
+          </div>
+
+          <!-- Progress -->
+          <div id="analysisProgress" class="mt-3 d-none">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+              <span class="text-muted" id="progressText">Parsing resumes...</span>
+            </div>
+            <div class="progress">
+              <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                   style="width: 100%"></div>
+            </div>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Side panel -->
+  <div class="col-lg-4">
+
+    <!-- How it works -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-info-circle me-2 text-info"></i>How It Works</h6>
+      </div>
+      <div class="card-body">
+        <div class="how-step">
+          <div class="how-icon bg-primary-subtle text-primary"><i class="fas fa-file-upload"></i></div>
+          <div>
+            <strong>Upload</strong>
+            <p class="text-muted small mb-0">Upload PDF/DOCX resumes + job description</p>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-icon bg-warning-subtle text-warning"><i class="fas fa-cogs"></i></div>
+          <div>
+            <strong>Parse & Extract</strong>
+            <p class="text-muted small mb-0">NLP extracts skills, experience, education</p>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-icon bg-success-subtle text-success"><i class="fas fa-chart-line"></i></div>
+          <div>
+            <strong>AI Scoring</strong>
+            <p class="text-muted small mb-0">TF-IDF + ML algorithms rank candidates</p>
+          </div>
+        </div>
+        <div class="how-step border-0">
+          <div class="how-icon bg-info-subtle text-info"><i class="fas fa-trophy"></i></div>
+          <div>
+            <strong>Results</strong>
+            <p class="text-muted small mb-0">View ranked candidates + analytics</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score breakdown info -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-balance-scale me-2 text-warning"></i>Scoring Weights</h6>
+      </div>
+      <div class="card-body">
+        <div class="score-weight-item">
+          <span>Semantic Match (TF-IDF)</span>
+          <div class="d-flex align-items-center gap-2">
+            <div class="progress flex-grow-1" style="height:6px">
+              <div class="progress-bar bg-primary" style="width:35%"></div>
+            </div>
+            <strong class="text-primary">35%</strong>
+          </div>
+        </div>
+        <div class="score-weight-item">
+          <span>Skills Match</span>
+          <div class="d-flex align-items-center gap-2">
+            <div class="progress flex-grow-1" style="height:6px">
+              <div class="progress-bar bg-success" style="width:35%"></div>
+            </div>
+            <strong class="text-success">35%</strong>
+          </div>
+        </div>
+        <div class="score-weight-item">
+          <span>Experience</span>
+          <div class="d-flex align-items-center gap-2">
+            <div class="progress flex-grow-1" style="height:6px">
+              <div class="progress-bar bg-warning" style="width:20%"></div>
+            </div>
+            <strong class="text-warning">20%</strong>
+          </div>
+        </div>
+        <div class="score-weight-item border-0">
+          <span>Education</span>
+          <div class="d-flex align-items-center gap-2">
+            <div class="progress flex-grow-1" style="height:6px">
+              <div class="progress-bar bg-info" style="width:10%"></div>
+            </div>
+            <strong class="text-info">10%</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Previous results -->
+    {% if has_results %}
+    <div class="card shadow-sm border-success">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0 text-success"><i class="fas fa-check-circle me-2"></i>Previous Analysis</h6>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          You have results from a previous session.
+        </p>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('dashboard') }}" class="btn btn-success btn-sm flex-grow-1">
+            <i class="fas fa-chart-pie me-1"></i>View Dashboard
+          </a>
+          <a href="{{ url_for('candidates') }}" class="btn btn-outline-success btn-sm flex-grow-1">
+            <i class="fas fa-users me-1"></i>Candidates
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Resume file drag & drop
+const resumeZone = document.getElementById('resumeDropZone');
+const resumeInput = document.getElementById('resumeFiles');
+const fileList = document.getElementById('fileList');
+
+resumeZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  resumeZone.classList.add('drag-over');
+});
+resumeZone.addEventListener('dragleave', () => resumeZone.classList.remove('drag-over'));
+resumeZone.addEventListener('drop', e => {
+  e.preventDefault();
+  resumeZone.classList.remove('drag-over');
+  const dt = new DataTransfer();
+  Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+  resumeInput.files = dt.files;
+  updateFileList();
+});
+resumeInput.addEventListener('change', updateFileList);
+
+function updateFileList() {
+  const files = Array.from(resumeInput.files);
+  if (!files.length) { fileList.classList.add('d-none'); return; }
+  fileList.classList.remove('d-none');
+  fileList.innerHTML = files.map((f, i) => `
+    <div class="file-item">
+      <i class="fas fa-file-${f.name.endsWith('.pdf') ? 'pdf text-danger' : 'word text-primary'} me-2"></i>
+      <span class="file-name">${f.name}</span>
+      <span class="file-size text-muted">${(f.size/1024).toFixed(0)} KB</span>
+    </div>
+  `).join('');
+}
+
+// JD file name display
+document.getElementById('jdFile').addEventListener('change', function() {
+  document.getElementById('jdFileName').textContent = this.files[0]?.name || 'No file selected';
+});
+
+// Form submission
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+  const jdText = document.getElementById('jdTextarea').value.trim();
+  const jdFile = document.getElementById('jdFile').files.length;
+  const resumes = resumeInput.files.length;
+
+  if (!jdText && !jdFile) {
+    e.preventDefault();
+    alert('Please provide a job description.');
+    return;
+  }
+  if (!resumes) {
+    e.preventDefault();
+    alert('Please upload at least one resume.');
+    return;
+  }
+
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('analysisProgress').classList.remove('d-none');
+
+  const steps = ['Uploading files...', 'Extracting text...', 'Running NLP analysis...', 'Calculating scores...', 'Ranking candidates...'];
+  let i = 0;
+  setInterval(() => {
+    if (i < steps.length) {
+      document.getElementById('progressText').textContent = steps[i++];
+    }
+  }, 1200);
+});
+</script>
+{% endblock %}

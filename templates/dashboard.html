@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AI Resume Screener{% endblock %}
+{% block page_title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card kpi-primary">
+      <div class="kpi-icon"><i class="fas fa-users"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ analytics.total_candidates or 0 }}</div>
+        <div class="kpi-label">Total Candidates</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card kpi-success">
+      <div class="kpi-icon"><i class="fas fa-trophy"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ analytics.top_score or 0 }}%</div>
+        <div class="kpi-label">Top Match Score</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card kpi-warning">
+      <div class="kpi-icon"><i class="fas fa-chart-line"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ analytics.avg_score or 0 }}%</div>
+        <div class="kpi-label">Average Score</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card kpi-info">
+      <div class="kpi-icon"><i class="fas fa-star"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ analytics.shortlisted or 0 }}</div>
+        <div class="kpi-label">Shortlisted (≥70%)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="row g-4 mb-4">
+  <!-- Candidate Score Bar Chart -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fas fa-bar-chart me-2 text-primary"></i>Candidate Match Scores</h6>
+        <div class="btn-group btn-group-sm" id="chartTypeToggle">
+          <button class="btn btn-outline-primary active" data-type="bar">Bar</button>
+          <button class="btn btn-outline-primary" data-type="radar">Radar</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <canvas id="scoreChart" height="280"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Score Distribution Pie -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-pie-chart me-2 text-warning"></i>Score Distribution</h6>
+      </div>
+      <div class="card-body d-flex flex-column align-items-center justify-content-center">
+        <canvas id="distChart" height="220"></canvas>
+        <div class="chart-legend mt-3 w-100">
+          {% set dist = analytics.score_distribution or {} %}
+          <div class="legend-item"><span class="legend-dot bg-danger"></span>0–25%: {{ dist.get('0-25', 0) }}</div>
+          <div class="legend-item"><span class="legend-dot bg-warning"></span>26–50%: {{ dist.get('26-50', 0) }}</div>
+          <div class="legend-item"><span class="legend-dot bg-info"></span>51–75%: {{ dist.get('51-75', 0) }}</div>
+          <div class="legend-item"><span class="legend-dot bg-success"></span>76–100%: {{ dist.get('76-100', 0) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="row g-4 mb-4">
+  <!-- Top Skills Bar -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-code me-2 text-success"></i>Most Common Skills</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="skillsChart" height="300"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Experience Level Doughnut -->
+  <div class="col-lg-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-briefcase me-2 text-info"></i>Experience Levels</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="expChart" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Education Distribution -->
+  <div class="col-lg-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="fas fa-graduation-cap me-2 text-warning"></i>Education</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="eduChart" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Top Candidates Table -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="fas fa-medal me-2 text-warning"></i>Top Candidates</h6>
+    <a href="{{ url_for('candidates') }}" class="btn btn-sm btn-outline-primary">
+      View All <i class="fas fa-arrow-right ms-1"></i>
+    </a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th width="60">Rank</th>
+            <th>Candidate</th>
+            <th>Skills Match</th>
+            <th>Score Breakdown</th>
+            <th>Match</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in top_candidates %}
+          <tr>
+            <td class="text-center">
+              {% if c.rank == 1 %}
+                <span class="rank-badge rank-gold"><i class="fas fa-trophy"></i></span>
+              {% elif c.rank == 2 %}
+                <span class="rank-badge rank-silver"><i class="fas fa-medal"></i></span>
+              {% elif c.rank == 3 %}
+                <span class="rank-badge rank-bronze"><i class="fas fa-medal"></i></span>
+              {% else %}
+                <span class="rank-badge rank-default">{{ c.rank }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar-circle">{{ (c.name or 'U')[0].upper() }}</div>
+                <div>
+                  <div class="fw-600">{{ c.name or 'Unknown' }}</div>
+                  <small class="text-muted">
+                    <i class="fas fa-envelope me-1"></i>{{ c.email or 'N/A' }}
+                  </small>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="skills-preview">
+                {% for skill in (c.skills or [])[:4] %}
+                  <span class="skill-tag">{{ skill }}</span>
+                {% endfor %}
+                {% if (c.skills or [])|length > 4 %}
+                  <span class="skill-tag skill-tag-more">+{{ (c.skills|length) - 4 }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              <div class="score-bars">
+                {% set scores = c.scores or {} %}
+                <div class="score-bar-item">
+                  <span>TF-IDF</span>
+                  <div class="mini-progress">
+                    <div class="mini-bar bg-primary" style="width:{{ scores.get('tfidf_score', 0) }}%"></div>
+                  </div>
+                  <span class="score-val">{{ scores.get('tfidf_score', 0) }}%</span>
+                </div>
+                <div class="score-bar-item">
+                  <span>Skills</span>
+                  <div class="mini-progress">
+                    <div class="mini-bar bg-success" style="width:{{ scores.get('skills_score', 0) }}%"></div>
+                  </div>
+                  <span class="score-val">{{ scores.get('skills_score', 0) }}%</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="score-circle-sm
+                {% if c.final_score >= 75 %}score-high{% elif c.final_score >= 50 %}score-mid{% else %}score-low{% endif %}">
+                {{ c.final_score or 0 }}%
+              </div>
+            </td>
+            <td>
+              <a href="{{ url_for('candidate_detail', candidate_id=c.id) }}"
+                 class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-eye me-1"></i>View
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">No candidates found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Job Description Summary -->
+<div class="card shadow-sm">
+  <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="fas fa-file-alt me-2 text-primary"></i>Job Description Summary</h6>
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#jdCollapse">
+      <i class="fas fa-chevron-down"></i>
+    </button>
+  </div>
+  <div class="collapse" id="jdCollapse">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <h6 class="text-muted mb-2">Full Text</h6>
+          <div class="jd-text">{{ results.job_description[:800] }}{% if results.job_description|length > 800 %}...{% endif %}</div>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-muted mb-2">Required Skills ({{ (results.required_skills or [])|length }})</h6>
+          <div class="skills-cloud">
+            {% for skill in (results.required_skills or [])[:20] %}
+              <span class="skill-tag skill-tag-req">{{ skill }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Inject analytics data
+const analyticsData = {{ analytics | tojson }};
+const candidatesData = {{ candidates | tojson }};
+
+document.addEventListener('DOMContentLoaded', function() {
+  initScoreChart();
+  initDistChart();
+  initSkillsChart();
+  initExpChart();
+  initEduChart();
+});
+
+function initScoreChart() {
+  const ctx = document.getElementById('scoreChart').getContext('2d');
+  const names = candidatesData.slice(0, 15).map(c => c.name ? c.name.substring(0, 15) : 'Unknown');
+  const scores = candidatesData.slice(0, 15).map(c => c.final_score || 0);
+  const colors = scores.map(s => s >= 75 ? '#10b981' : s >= 50 ? '#f59e0b' : '#ef4444');
+
+  window.scoreChartObj = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: 'Match Score (%)',
+        data: scores,
+        backgroundColor: colors,
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.05)' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function initDistChart() {
+  const dist = analyticsData.score_distribution || {};
+  const ctx = document.getElementById('distChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['0-25%', '26-50%', '51-75%', '76-100%'],
+      datasets: [{
+        data: [dist['0-25']||0, dist['26-50']||0, dist['51-75']||0, dist['76-100']||0],
+        backgroundColor: ['#ef4444','#f59e0b','#06b6d4','#10b981'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '70%',
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function initSkillsChart() {
+  const topSkills = (analyticsData.top_skills || []).slice(0, 12);
+  const ctx = document.getElementById('skillsChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: topSkills.map(s => s.skill),
+      datasets: [{
+        label: 'Frequency',
+        data: topSkills.map(s => s.count),
+        backgroundColor: '#4f46e5',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function initExpChart() {
+  const exp = analyticsData.experience_levels || {};
+  const ctx = document.getElementById('expChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(exp),
+      datasets: [{
+        data: Object.values(exp),
+        backgroundColor: ['#06b6d4','#4f46e5','#10b981','#f59e0b'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }
+    }
+  });
+}
+
+function initEduChart() {
+  const edu = analyticsData.education_distribution || {};
+  const ctx = document.getElementById('eduChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: Object.keys(edu),
+      datasets: [{
+        data: Object.values(edu),
+        backgroundColor: ['#4f46e5','#10b981','#f59e0b','#ef4444','#06b6d4','#8b5cf6'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }
+    }
+  });
+}
+
+// Chart type toggle
+document.getElementById('chartTypeToggle').addEventListener('click', function(e) {
+  if (!e.target.dataset.type) return;
+  document.querySelectorAll('#chartTypeToggle .btn').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+
+  if (window.scoreChartObj) {
+    window.scoreChartObj.destroy();
+  }
+  const ctx = document.getElementById('scoreChart').getContext('2d');
+  const names = candidatesData.slice(0, 10).map(c => c.name ? c.name.substring(0, 12) : 'Unknown');
+  const type = e.target.dataset.type;
+
+  if (type === 'radar') {
+    const top5 = candidatesData.slice(0, 5);
+    window.scoreChartObj = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: ['TF-IDF', 'Skills', 'Experience', 'Education', 'ATS'],
+        datasets: top5.map((c, i) => ({
+          label: (c.name || 'Unknown').substring(0, 12),
+          data: [
+            c.scores?.tfidf_score||0,
+            c.scores?.skills_score||0,
+            c.scores?.experience_score||0,
+            c.scores?.education_score||0,
+            c.scores?.ats_score||0
+          ],
+          fill: true,
+          backgroundColor: `rgba(${[79,99,235,59,139][i]},${[70,130,191,130,92][i]},${[229,246,59,246,229][i]},0.15)`,
+          borderColor: ['#4f46e5','#10b981','#f59e0b','#ef4444','#06b6d4'][i],
+          pointBackgroundColor: ['#4f46e5','#10b981','#f59e0b','#ef4444','#06b6d4'][i]
+        }))
+      },
+      options: {
+        responsive: true,
+        scales: { r: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.08)' } } }
+      }
+    });
+  } else {
+    initScoreChart();
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}Candidates — AI Resume Screener{% endblock %}
+{% block page_title %}Candidate Rankings{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('candidates') }}" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Search</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent"><i class="fas fa-search text-muted"></i></span>
+          <input type="text" class="form-control" name="q" value="{{ search_q or '' }}"
+                 placeholder="Name, email or skill...">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Minimum Score</label>
+        <select class="form-select" name="min_score">
+          <option value="0" {% if min_score == 0 %}selected{% endif %}>All candidates</option>
+          <option value="25" {% if min_score == 25 %}selected{% endif %}>≥ 25%</option>
+          <option value="50" {% if min_score == 50 %}selected{% endif %}>≥ 50%</option>
+          <option value="70" {% if min_score == 70 %}selected{% endif %}>≥ 70% (Shortlisted)</option>
+          <option value="85" {% if min_score == 85 %}selected{% endif %}>≥ 85% (Top)</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Sort By</label>
+        <select class="form-select" name="sort">
+          <option value="rank" {% if sort_by == 'rank' %}selected{% endif %}>Rank (Best First)</option>
+          <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name (A-Z)</option>
+          <option value="score" {% if sort_by == 'score' %}selected{% endif %}>Score (Highest)</option>
+        </select>
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary flex-grow-1">
+          <i class="fas fa-filter me-1"></i>Filter
+        </button>
+        <a href="{{ url_for('candidates') }}" class="btn btn-outline-secondary">
+          <i class="fas fa-undo"></i>
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Stats summary -->
+<div class="row g-3 mb-4">
+  <div class="col-auto">
+    <span class="badge bg-primary-subtle text-primary fs-6 px-3 py-2">
+      <i class="fas fa-users me-1"></i>{{ candidates|length }} candidate(s) shown
+    </span>
+  </div>
+  <div class="col-auto ms-auto d-flex gap-2">
+    <a href="{{ url_for('export_csv') }}" class="btn btn-sm btn-outline-success">
+      <i class="fas fa-file-csv me-1"></i>Export CSV
+    </a>
+    <a href="{{ url_for('export_pdf') }}" class="btn btn-sm btn-outline-danger">
+      <i class="fas fa-file-pdf me-1"></i>Export PDF
+    </a>
+  </div>
+</div>
+
+<!-- Candidate cards / table toggle -->
+<div class="d-flex justify-content-end mb-3">
+  <div class="btn-group btn-group-sm" id="viewToggle">
+    <button class="btn btn-outline-secondary active" data-view="table"><i class="fas fa-list"></i></button>
+    <button class="btn btn-outline-secondary" data-view="cards"><i class="fas fa-th-large"></i></button>
+  </div>
+</div>
+
+<!-- Table View -->
+<div id="tableView">
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="candidateTable">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th width="60" class="text-center">Rank</th>
+              <th>Candidate</th>
+              <th>Top Skills</th>
+              <th>Experience</th>
+              <th class="text-center">ATS</th>
+              <th class="text-center">TF-IDF</th>
+              <th class="text-center">Skills</th>
+              <th class="text-center">Final Score</th>
+              <th width="80"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in candidates %}
+            {% set scores = c.scores or {} %}
+            <tr class="candidate-row" data-id="{{ c.id }}">
+              <td class="text-center">
+                {% if c.rank == 1 %}
+                  <span class="rank-badge rank-gold"><i class="fas fa-trophy"></i></span>
+                {% elif c.rank == 2 %}
+                  <span class="rank-badge rank-silver">2</span>
+                {% elif c.rank == 3 %}
+                  <span class="rank-badge rank-bronze">3</span>
+                {% else %}
+                  <span class="text-muted fw-600">{{ c.rank }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="avatar-circle avatar-sm
+                    {% if c.final_score >= 75 %}avatar-green{% elif c.final_score >= 50 %}avatar-yellow{% else %}avatar-red{% endif %}">
+                    {{ (c.name or 'U')[0].upper() }}
+                  </div>
+                  <div>
+                    <div class="fw-600 text-truncate" style="max-width:160px">{{ c.name or 'Unknown' }}</div>
+                    <small class="text-muted d-block text-truncate" style="max-width:160px">
+                      {{ c.email or 'No email' }}
+                    </small>
+                    {% if c.experience_years %}
+                    <small class="text-muted">{{ c.experience_years }}y exp • {{ c.education_level or '' }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td>
+                {% for skill in (c.skills or [])[:3] %}
+                  <span class="skill-tag skill-tag-sm">{{ skill }}</span>
+                {% endfor %}
+                {% if (c.skills or [])|length > 3 %}
+                  <span class="skill-tag skill-tag-sm skill-tag-more">+{{ (c.skills|length) - 3 }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="text-muted small">{{ c.experience_years or 0 }}y</span>
+              </td>
+              <td class="text-center">
+                <span class="score-badge {% if scores.get('ats_score', 0) >= 70 %}badge-green{% elif scores.get('ats_score', 0) >= 45 %}badge-yellow{% else %}badge-red{% endif %}">
+                  {{ scores.get('ats_score', 0) }}%
+                </span>
+              </td>
+              <td class="text-center">
+                <span class="score-badge {% if scores.get('tfidf_score', 0) >= 60 %}badge-green{% elif scores.get('tfidf_score', 0) >= 35 %}badge-yellow{% else %}badge-red{% endif %}">
+                  {{ scores.get('tfidf_score', 0) }}%
+                </span>
+              </td>
+              <td class="text-center">
+                <span class="score-badge {% if scores.get('skills_score', 0) >= 60 %}badge-green{% elif scores.get('skills_score', 0) >= 35 %}badge-yellow{% else %}badge-red{% endif %}">
+                  {{ scores.get('skills_score', 0) }}%
+                </span>
+              </td>
+              <td class="text-center">
+                <div class="final-score-wrap">
+                  <div class="score-donut
+                    {% if c.final_score >= 75 %}score-donut-green
+                    {% elif c.final_score >= 50 %}score-donut-yellow
+                    {% else %}score-donut-red{% endif %}"
+                    style="--pct: {{ c.final_score or 0 }}">
+                    <span>{{ c.final_score or 0 }}%</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <a href="{{ url_for('candidate_detail', candidate_id=c.id) }}"
+                   class="btn btn-sm btn-outline-primary">
+                  <i class="fas fa-eye"></i>
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="9" class="text-center py-5 text-muted">
+                <i class="fas fa-search fa-2x mb-2 d-block opacity-25"></i>
+                No candidates match your filters.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cards View (hidden by default) -->
+<div id="cardsView" class="d-none">
+  <div class="row g-3">
+    {% for c in candidates %}
+    {% set scores = c.scores or {} %}
+    <div class="col-md-6 col-xl-4">
+      <div class="candidate-card">
+        <div class="candidate-card-header">
+          <div class="d-flex align-items-center gap-3">
+            <div class="avatar-circle avatar-lg
+              {% if c.final_score >= 75 %}avatar-green{% elif c.final_score >= 50 %}avatar-yellow{% else %}avatar-red{% endif %}">
+              {{ (c.name or 'U')[0].upper() }}
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <h6 class="mb-0 text-truncate">{{ c.name or 'Unknown' }}</h6>
+              <small class="text-muted text-truncate d-block">{{ c.email or 'No email' }}</small>
+            </div>
+            <div class="rank-pill">#{{ c.rank }}</div>
+          </div>
+          <div class="score-ring mt-3">
+            <div class="score-ring-value
+              {% if c.final_score >= 75 %}text-success{% elif c.final_score >= 50 %}text-warning{% else %}text-danger{% endif %}">
+              {{ c.final_score or 0 }}%
+            </div>
+            <div class="score-ring-label">Match</div>
+          </div>
+        </div>
+        <div class="candidate-card-body">
+          <div class="score-grid">
+            <div class="score-item">
+              <span class="score-item-label">Skills</span>
+              <div class="score-item-bar">
+                <div class="score-item-fill bg-success" style="width:{{ scores.get('skills_score',0) }}%"></div>
+              </div>
+              <span class="score-item-val">{{ scores.get('skills_score',0) }}%</span>
+            </div>
+            <div class="score-item">
+              <span class="score-item-label">TF-IDF</span>
+              <div class="score-item-bar">
+                <div class="score-item-fill bg-primary" style="width:{{ scores.get('tfidf_score',0) }}%"></div>
+              </div>
+              <span class="score-item-val">{{ scores.get('tfidf_score',0) }}%</span>
+            </div>
+            <div class="score-item">
+              <span class="score-item-label">ATS</span>
+              <div class="score-item-bar">
+                <div class="score-item-fill bg-info" style="width:{{ scores.get('ats_score',0) }}%"></div>
+              </div>
+              <span class="score-item-val">{{ scores.get('ats_score',0) }}%</span>
+            </div>
+          </div>
+          <div class="skills-preview mt-2">
+            {% for skill in (c.skills or [])[:5] %}
+              <span class="skill-tag skill-tag-sm">{{ skill }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="candidate-card-footer">
+          <small class="text-muted">
+            <i class="fas fa-briefcase me-1"></i>{{ c.experience_years or 0 }}y exp
+          </small>
+          <a href="{{ url_for('candidate_detail', candidate_id=c.id) }}"
+             class="btn btn-sm btn-primary">View Profile</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// View toggle
+document.getElementById('viewToggle').addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-view]');
+  if (!btn) return;
+  document.querySelectorAll('#viewToggle .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (btn.dataset.view === 'cards') {
+    document.getElementById('tableView').classList.add('d-none');
+    document.getElementById('cardsView').classList.remove('d-none');
+  } else {
+    document.getElementById('cardsView').classList.add('d-none');
+    document.getElementById('tableView').classList.remove('d-none');
+  }
+});
+
+// Quick search
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.querySelector('input[name="q"]');
+  if (searchInput) {
+    searchInput.addEventListener('keyup', function() {
+      const q = this.value.toLowerCase();
+      document.querySelectorAll('.candidate-row').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+  }
+});
+</script>
+{% endblock %}
