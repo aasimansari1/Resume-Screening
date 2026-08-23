@@ -1,3 +1,5 @@
+[![CI](https://github.com/aasimansari1/Resume-Screening/actions/workflows/ci.yml/badge.svg)](https://github.com/aasimansari1/Resume-Screening/actions/workflows/ci.yml)
+
 <div align="center">
 
 # 🤖 AI Resume Screener
